@@ -134,7 +134,7 @@ def train_epoch(net, criterion, optimizer, data, batch_size, batch_no):
     return total_loss / (batch_size * batch_no)
 
 
-def display(stats, cutoff):
+def display(stats):
     for digit in range(10):
         print(f'Digit {digit}')
         total = sum(stats[digit].values())
