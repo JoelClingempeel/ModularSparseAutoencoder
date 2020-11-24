@@ -1,4 +1,7 @@
-Experiments with SAY STUFF
+# Learn Stripes
+This repo contains experiments with different ways of learning stripes with the eventual aim of being used in a neural net based on the prefrontal cortex.
+The first step towards realizing this is to build something like an autoencoder where the neurons in the code layer are divided into groups such that only
+a limited number of groups may be active at once and train it in such a way that the groups specialize appropriately.
 
 
 ## stripes.py
