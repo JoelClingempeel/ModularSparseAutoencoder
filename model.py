@@ -24,7 +24,7 @@ class Net(nn.Module):
         self.num_active_neurons = num_active_neurons
         self.num_active_stripes = num_active_stripes
         if mode not in ['ordinary', 'boosted', 'lifetime']:
-            raise ValueError('Mode must be set to boosted or lifetime.')
+            raise ValueError('Mode must be set to ordinary, boosted, or lifetime.')
         self.mode = mode
 
         if mode == 'boosted':

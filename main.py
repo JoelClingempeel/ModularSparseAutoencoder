@@ -27,7 +27,7 @@ parser.add_argument('--beta', type=float, default=1.2)
 # Training Flags
 parser.add_argument('--lr', type=float, default=.01)
 parser.add_argument('--momentum', type=float, default=.9)
-parser.add_argument('--num_epochs', type=int, default=2)  # For testing - remember to change!
+parser.add_argument('--num_epochs', type=int, default=10)
 parser.add_argument('--batch_size', type=int, default=8)
 parser.add_argument('--data_path', type=str, default='data.csv')
 parser.add_argument('--log_path', type=str, default='logs')
