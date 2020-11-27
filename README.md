@@ -18,3 +18,4 @@ The former has three versions as determined by the *mode* flag.
     -  Sparsity is enhanced via boosting to make recently active neurons less likely to be active again.
     -  Reference:  https://arxiv.org/abs/1903.11257
 
+**Note:**  Tensorboard data is logged in paths of the form *<log_dir>/<mode>/<timestamp>/<stripe>* so that for each digit, different stripes may be shown on the same graph. It is recommended to give tensorboard a specific timestamp (i.e. by running *tensorboard --logdir <log_dir>/<mode>/<timestamp>*) to avoid cluttering with data across runs.
