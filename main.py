@@ -20,9 +20,9 @@ parser.add_argument('--stripe_dim', type=int, default=20)
 parser.add_argument('--num_stripes', type=int, default=15)
 parser.add_argument('--num_active_neurons', type=int, default=15)
 parser.add_argument('--num_active_stripes', type=int, default=4)
-parser.add_argument('--mode', type=str, default='ordinary')  # Set to ordinary, lifetime, or boosting.
+parser.add_argument('--mode', type=str, default='ordinary')  # Set to ordinary, boosted, or lifetime.
 
-# Boosting Flags - Only necessary when mode is set to boosting.
+# Boosting Flags - Only necessary when mode is set to boosted.
 parser.add_argument('--alpha', type=float, default=.8)
 parser.add_argument('--beta', type=float, default=1.2)
 
