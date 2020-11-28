@@ -5,7 +5,8 @@ Each experiment uses two kinds of sparsity:
 * k-sparsity across an entire layer (ignoring boundaries between stripes).
 * k-sparsity across stripes ranked by average activation.
 
-### k-sparsity across an entire layer (ignoring boundaries between stripes):  Controlled by the *layer_sparsity_mode* flag.
+### k-sparsity across an entire layer (ignoring boundaries between stripes):
+Controlled by the *layer_sparsity_mode* flag.
 * none
 * ordinary
     -  The k neurons with highest activations remain active.
@@ -16,7 +17,8 @@ Each experiment uses two kinds of sparsity:
     -  Sparsity is enhanced via boosting to make recently active neurons less likely to be active again.
     -  Reference:  https://arxiv.org/abs/1903.11257
 
-### k-sparsity across stripes:  Controlled by the *stripe_sparsity_mode* flag.
+### k-sparsity across stripes:
+Controlled by the *stripe_sparsity_mode* flag.
 * none
 * ordinary
     -  The k stripes with highest average activations remain active.
