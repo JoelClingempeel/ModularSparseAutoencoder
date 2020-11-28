@@ -19,22 +19,25 @@ parser.add_argument('--intermediate_dim', type=int, default=250)
 parser.add_argument('--stripe_dim', type=int, default=20)
 parser.add_argument('--num_stripes', type=int, default=15)
 parser.add_argument('--num_active_neurons', type=int, default=15)
-parser.add_argument('--num_active_stripes', type=int, default=4)
+parser.add_argument('--num_active_stripes', type=int, default=7)
 parser.add_argument('--layer_sparsity_mode', type=str, default='none')  # Set to none, ordinary, boosted, or lifetime.
 parser.add_argument('--stripe_sparsity_mode', type=str, default='routing')  # Set to none, ordinary, or routing.
 
-# Boosting Flags - Only necessary when mode is set to boosted.
+# Boosting Flags - Only necessary when layer_sparsity_mode is set to boosted.
 parser.add_argument('--alpha', type=float, default=.8)
 parser.add_argument('--beta', type=float, default=1.2)
+
+# Routing Flags - Only necessary when stripe_sparsity_mode is set to routing.
+parser.add_argument('--log_average_routing_scores', type=bool, default=True)
 
 # Training Flags
 parser.add_argument('--lr', type=float, default=.01)
 parser.add_argument('--momentum', type=float, default=.9)
-parser.add_argument('--num_epochs', type=int, default=10)
+parser.add_argument('--num_epochs', type=int, default=15)
 parser.add_argument('--batch_size', type=int, default=8)
 parser.add_argument('--data_path', type=str, default='data.csv')
 parser.add_argument('--log_path', type=str, default='logs')
-parser.add_argument('--log_class_specific_losses', type=bool, default=True)
+parser.add_argument('--log_class_specific_losses', type=bool, default=False)
 
 args = vars(parser.parse_args())
 
@@ -90,6 +93,27 @@ def log_activation_data(net, activation_writers, X_test, Y_test, epoch):
             stripe_writer.add_scalar(f'digit_{digit}', stripe_stats[digit][stripe], epoch)
         stripe_writer.flush()
 
+def log_average_routing_scores(net, X, Y, writers, epoch):
+    running_scores = {}
+    running_counts = {}
+    for num in range(10):
+        running_scores[str(num)] = torch.zeros(net.num_stripes)
+        running_counts[str(num)] = 0
+
+    with torch.no_grad():
+        for datum, label in zip(X, Y):
+            x_var = torch.FloatTensor(datum).unsqueeze(0)
+            digit = str(label.item())
+            running_scores[digit] += net.get_routing_scores(x_var).squeeze(0)
+            running_counts[digit] += 1
+
+    for stripe in range(net.num_stripes):
+        stripe_writer = writers[stripe]
+        for digit in range(10):
+            routing = running_scores[str(digit)][stripe].item() / running_counts[str(digit)]
+            stripe_writer.add_scalar(f'digit_routing_{digit}', routing, epoch)
+        stripe_writer.flush()
+
 
 def main():
     data = pd.read_csv(args['data_path']).values
@@ -107,7 +131,8 @@ def main():
               args['layer_sparsity_mode'],
               args['stripe_sparsity_mode'],
               args['alpha'],
-              args['beta'])
+              args['beta'],
+              args['log_average_routing_scores'])
     criterion = nn.MSELoss()
     optimizer = optim.SGD(net.parameters(),
                           lr=args['lr'],
@@ -143,6 +168,13 @@ def main():
                             X_test,
                             Y_test,
                             epoch)
+
+        if args['stripe_sparsity_mode'] == 'routing' and args['log_average_routing_scores']:
+            log_average_routing_scores(net,
+                                       X_test,
+                                       Y_test,
+                                       activation_writers,
+                                       epoch)
 
 
 if __name__ == '__main__':

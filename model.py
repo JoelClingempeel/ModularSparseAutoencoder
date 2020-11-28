@@ -13,7 +13,8 @@ class Net(nn.Module):
                  layer_sparsity_mode,
                  stripe_sparsity_mode,
                  alpha,
-                 beta):
+                 beta,
+                 log_average_routing_scores):
         super(Net, self).__init__()
         self.layer1 = nn.Linear(784, intermediate_dim)
         self.layer2 = nn.Linear(intermediate_dim, stripe_dim * num_stripes)
@@ -139,3 +140,7 @@ class Net(nn.Module):
             for stripe in stripes:
                 activations[digit][stripe] += 1
         return activations
+
+    def get_routing_scores(self, x):
+        x = F.relu(self.layer1(x))
+        return self.routing_layer(x)

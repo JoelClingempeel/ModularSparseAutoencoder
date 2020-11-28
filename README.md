@@ -26,4 +26,12 @@ Each experiment uses two kinds of sparsity:
 * routing
     -  Each gate is turned on or off as controlled by selecting the top k after applying a linear transformation to the layer before the stripes.
 
-**Note:**  Tensorboard data is logged in paths of the form *[log_dir]/[layer_sparsity_mode]/[stripe_sparsity_mode]/[timestamp]/[stripe]* so that for each digit, different stripes may be shown on the same graph. It is recommended to give tensorboard a specific timestamp (i.e. by running *tensorboard --logdir [log_dir]/[layer_sparsity_mode]/[stripe_sparsity_mode]/[timestamp]*) to avoid cluttering with data across runs.
+**Note:**  Tensorboard data is logged in paths of the form
+
+*[log_dir]/[layer_sparsity_mode]/[stripe_sparsity_mode]/[timestamp]/[stripe]*
+
+so that for each digit, different stripes may be shown on the same graph. It is recommended to give tensorboard a specific timestamp by running
+
+*tensorboard --logdir [log_dir]/[layer_sparsity_mode]/[stripe_sparsity_mode]/[timestamp]*
+
+to avoid cluttering with data across runs.
