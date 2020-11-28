@@ -1,5 +1,5 @@
 # Modular Sparse Autoencoder
-The aim of this project is to experiment with ways of building sparse autoencoders which are modular in the sense that the code layer neurons are divided into clusters (called *stripes* in reference to stripes in the prefrontal cortex) such that only a limited number of clusters may be active at once.
+The aim of this project is to experiment with ways of building sparse autoencoders which are modular in the sense that the code layer neurons are divided into clusters (called **stripes** in reference to stripes in the prefrontal cortex) such that only a limited number of clusters may be active at once.
 
 Each experiment uses two kinds of sparsity:
 * k-sparsity across an entire layer (ignoring boundaries between stripes).
