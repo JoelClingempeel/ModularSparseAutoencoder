@@ -19,7 +19,7 @@ parser.add_argument('--intermediate_dim', type=int, default=250)
 parser.add_argument('--stripe_dim', type=int, default=20)
 parser.add_argument('--num_stripes', type=int, default=15)
 parser.add_argument('--num_active_neurons', type=int, default=15)
-parser.add_argument('--num_active_stripes', type=int, default=7)
+parser.add_argument('--num_active_stripes', type=int, default=12)
 parser.add_argument('--layer_sparsity_mode', type=str, default='none')  # Set to none, ordinary, boosted, or lifetime.
 parser.add_argument('--stripe_sparsity_mode', type=str, default='routing')  # Set to none, ordinary, or routing.
 
@@ -28,6 +28,7 @@ parser.add_argument('--alpha', type=float, default=.8)
 parser.add_argument('--beta', type=float, default=1.2)
 
 # Routing Flags - Only necessary when stripe_sparsity_mode is set to routing.
+parser.add_argument('--routing_l1_regularization', type=float, default=.05)
 parser.add_argument('--log_average_routing_scores', type=bool, default=True)
 
 # Training Flags
@@ -42,7 +43,7 @@ parser.add_argument('--log_class_specific_losses', type=bool, default=False)
 args = vars(parser.parse_args())
 
 
-def train_epoch(net, criterion, optimizer, data, batch_size, batch_no):
+def train_epoch(net, criterion, optimizer, data, batch_size, batch_no, routing_l1_regularization=0):
     data = shuffle(data)
     total_loss = 0
     for i in range(batch_no):
@@ -53,6 +54,8 @@ def train_epoch(net, criterion, optimizer, data, batch_size, batch_no):
         optimizer.zero_grad()
         xpred_var = net(x_var)
         loss = criterion(xpred_var, x_var)
+        if routing_l1_regularization:
+            loss += routing_l1_regularization * torch.norm(net.routing_layer.weight, p=1)
         loss.backward(retain_graph=True)
         optimizer.step()
 
@@ -147,6 +150,8 @@ def main():
     main_writer = SummaryWriter(root_path)
     activation_writers = [SummaryWriter(os.path.join(root_path, str(num)))
                           for num in range(args['num_stripes'])]
+    # This avoids a program crash if routing_l1_regularization is set but not stripe_sparsity_mode.
+    routing_l1_regularization = (args['routing_l1_regularization'] if args['stripe_sparsity_mode'] == 'routing' else 0)
 
     for epoch in range(args['num_epochs']):
         train_loss = train_epoch(net,
@@ -154,7 +159,8 @@ def main():
                                  optimizer,
                                  X_train,
                                  batch_size,
-                                 batch_no)
+                                 batch_no,
+                                 routing_l1_regularization=routing_l1_regularization)
         main_writer.add_scalar('train_loss', train_loss, epoch)
         log_losses(net,
                    criterion,

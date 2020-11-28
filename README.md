@@ -28,10 +28,10 @@ Each experiment uses two kinds of sparsity:
 
 **Note:**  Tensorboard data is logged in paths of the form
 
-*[log_dir]/[layer_sparsity_mode]/[stripe_sparsity_mode]/[timestamp]/[stripe]*
+```[log_dir]/[layer_sparsity_mode]/[stripe_sparsity_mode]/[timestamp]/[stripe]```
 
 so that for each digit, different stripes may be shown on the same graph. It is recommended to give tensorboard a specific timestamp by running
 
-*tensorboard --logdir [log_dir]/[layer_sparsity_mode]/[stripe_sparsity_mode]/[timestamp]*
+```tensorboard --logdir [log_dir]/[layer_sparsity_mode]/[stripe_sparsity_mode]/[timestamp]```
 
 to avoid cluttering with data across runs.
