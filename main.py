@@ -56,7 +56,17 @@ def train_epoch(net, criterion, optimizer, data, batch_size, batch_no):
     return total_loss / (batch_size * batch_no)
 
 
-def log_activation_data(net, activation_writers):
+def get_loss(net, criterion, data):
+    loss = 0
+    with torch.no_grad():
+        for datum in data:
+            x_var = torch.FloatTensor(datum).unsqueeze(0)
+            xpred_var = net(x_var)
+            loss += criterion(xpred_var, x_var).item()
+    return loss / len(data)
+
+
+def log_activation_data(net, activation_writers, X_test, Y_test):
     stripe_stats = net.get_stripe_stats(X_test, Y_test)
     for stripe in range(args['num_stripes']):
         stripe_writer = activation_writers[stripe]
@@ -98,7 +108,10 @@ activation_writers = [SummaryWriter(os.path.join(root_path, str(num)))
 
 for epoch in range(args['num_epochs']):
     print(f'Epoch number {epoch}')
-    loss = train_epoch(net, criterion, optimizer, X_train, batch_size, batch_no)
-    main_writer.add_scalar('loss', loss, epoch)
-    print(f'Average Loss: {loss}')
-    log_activation_data(net, activation_writers)
+    train_loss = train_epoch(net, criterion, optimizer, X_train, batch_size, batch_no)
+    main_writer.add_scalar('train_loss', train_loss, epoch)
+    print(f'Average Train Loss: {train_loss}')
+    test_loss = get_loss(net, criterion, X_test)
+    main_writer.add_scalar('test_loss', test_loss, epoch)
+    print(f'Average Test Loss: {test_loss}')
+    log_activation_data(net, activation_writers, X_test, Y_test)
