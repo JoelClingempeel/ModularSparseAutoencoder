@@ -87,7 +87,7 @@ class Net(nn.Module):
             cluster_indices = data.topk(self.num_active_stripes).indices
             mask = torch.tensor([1 if j in cluster_indices else 0
                                  for j in range(self.num_stripes)])
-            mask_data.append(data)
+            mask_data.append(mask)
         mask = torch.stack(mask_data, dim=0).unsqueeze(2)
         return mask * stripe_data
 
