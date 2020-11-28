@@ -80,7 +80,6 @@ def log_losses(net, criterion, writer, X, Y, log_class_specific_losses=True):
     for key, loss in running_losses.items():
         writer.add_scalar(f'test_loss_{key}', loss / running_counts[key], epoch)
     writer.flush()
-    print(f'Average Test Loss: { running_losses["overall"] / running_counts["overall"] }')
 
 
 def log_activation_data(net, activation_writers, X_test, Y_test):
@@ -124,7 +123,6 @@ activation_writers = [SummaryWriter(os.path.join(root_path, str(num)))
            for num in range(args['num_stripes'])]
 
 for epoch in range(args['num_epochs']):
-    print(f'Epoch number {epoch}')
     train_loss = train_epoch(net,
                              criterion,
                              optimizer,
@@ -132,7 +130,6 @@ for epoch in range(args['num_epochs']):
                              batch_size,
                              batch_no)
     main_writer.add_scalar('train_loss', train_loss, epoch)
-    print(f'Average Train Loss: {train_loss}')
     log_losses(net,
                criterion,
                main_writer, 
