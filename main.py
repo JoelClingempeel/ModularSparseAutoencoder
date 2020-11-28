@@ -34,6 +34,7 @@ parser.add_argument('--num_epochs', type=int, default=10)
 parser.add_argument('--batch_size', type=int, default=8)
 parser.add_argument('--data_path', type=str, default='data.csv')
 parser.add_argument('--log_path', type=str, default='logs')
+parser.add_argument('--log_class_specific_losses', type=bool, default=True)
 
 args = vars(parser.parse_args())
 
@@ -56,14 +57,30 @@ def train_epoch(net, criterion, optimizer, data, batch_size, batch_no):
     return total_loss / (batch_size * batch_no)
 
 
-def get_loss(net, criterion, data):
-    loss = 0
+def log_losses(net, criterion, writer, X, Y, log_class_specific_losses=True):
+    running_losses = {'overall': 0}
+    running_counts = {'overall': 0}
+    if log_class_specific_losses:
+        for num in range(10):
+            running_losses[str(num)] = 0
+            running_counts[str(num)] = 0
+
     with torch.no_grad():
-        for datum in data:
+        for datum, label in zip(X, Y):
             x_var = torch.FloatTensor(datum).unsqueeze(0)
             xpred_var = net(x_var)
-            loss += criterion(xpred_var, x_var).item()
-    return loss / len(data)
+            loss = criterion(xpred_var, x_var).item()
+            running_losses['overall'] += loss
+            running_counts['overall'] += 1
+            if log_class_specific_losses:
+                key = str(label.item())
+                running_losses[key] += loss
+                running_counts[key] += 1
+
+    for key, loss in running_losses.items():
+        writer.add_scalar(f'test_loss_{key}', loss / running_counts[key], epoch)
+    writer.flush()
+    print(f'Average Test Loss: { running_losses["overall"] / running_counts["overall"] }')
 
 
 def log_activation_data(net, activation_writers, X_test, Y_test):
@@ -108,10 +125,21 @@ activation_writers = [SummaryWriter(os.path.join(root_path, str(num)))
 
 for epoch in range(args['num_epochs']):
     print(f'Epoch number {epoch}')
-    train_loss = train_epoch(net, criterion, optimizer, X_train, batch_size, batch_no)
+    train_loss = train_epoch(net,
+                             criterion,
+                             optimizer,
+                             X_train,
+                             batch_size,
+                             batch_no)
     main_writer.add_scalar('train_loss', train_loss, epoch)
     print(f'Average Train Loss: {train_loss}')
-    test_loss = get_loss(net, criterion, X_test)
-    main_writer.add_scalar('test_loss', test_loss, epoch)
-    print(f'Average Test Loss: {test_loss}')
-    log_activation_data(net, activation_writers, X_test, Y_test)
+    log_losses(net,
+               criterion,
+               main_writer, 
+               X_test, 
+               Y_test,
+               log_class_specific_losses=args['log_class_specific_losses'])
+    log_activation_data(net,
+                        activation_writers,
+                        X_test,
+                        Y_test)
