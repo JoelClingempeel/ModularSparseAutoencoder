@@ -88,8 +88,8 @@ class Net(nn.Module):
             mask = torch.tensor([1 if j in cluster_indices else 0
                                  for j in range(self.num_stripes)])
             mask_data.append(mask)
-        mask = torch.stack(mask_data, dim=0).unsqueeze(2)
-        return mask * stripe_data
+        mask = torch.stack(mask_data, dim=0) * routing_scores
+        return mask.unsqueeze(2) * stripe_data
 
     def encode(self, x):
         x = F.relu(self.layer1(x))

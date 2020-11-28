@@ -57,7 +57,7 @@ def train_epoch(net, criterion, optimizer, data, batch_size, batch_no):
     return total_loss / (batch_size * batch_no)
 
 
-def log_losses(net, criterion, writer, X, Y, log_class_specific_losses=True):
+def log_losses(net, criterion, writer, X, Y, epoch, log_class_specific_losses=True):
     running_losses = {'overall': 0}
     running_counts = {'overall': 0}
     if log_class_specific_losses:
@@ -82,7 +82,7 @@ def log_losses(net, criterion, writer, X, Y, log_class_specific_losses=True):
     writer.flush()
 
 
-def log_activation_data(net, activation_writers, X_test, Y_test):
+def log_activation_data(net, activation_writers, X_test, Y_test, epoch):
     stripe_stats = net.get_stripe_stats(X_test, Y_test)
     for stripe in range(args['num_stripes']):
         stripe_writer = activation_writers[stripe]
@@ -136,11 +136,13 @@ def main():
                    main_writer,
                    X_test,
                    Y_test,
+                   epoch,
                    log_class_specific_losses=args['log_class_specific_losses'])
         log_activation_data(net,
                             activation_writers,
                             X_test,
-                            Y_test)
+                            Y_test,
+                            epoch)
 
 
 if __name__ == '__main__':
