@@ -10,7 +10,8 @@ class Net(nn.Module):
                  num_stripes,
                  num_active_neurons,
                  num_active_stripes,
-                 mode,
+                 layer_sparsity_mode,
+                 stripe_sparsity_mode,
                  alpha,
                  beta):
         super(Net, self).__init__()
@@ -23,15 +24,22 @@ class Net(nn.Module):
         self.num_stripes = num_stripes
         self.num_active_neurons = num_active_neurons
         self.num_active_stripes = num_active_stripes
-        if mode not in ['ordinary', 'boosted', 'lifetime']:
-            raise ValueError('Mode must be set to ordinary, boosted, or lifetime.')
-        self.mode = mode
 
-        if mode == 'boosted':
+        if layer_sparsity_mode not in ['none', 'ordinary', 'boosted', 'lifetime']:
+            raise ValueError('Layer sparsity mode must be set to none, ordinary, boosted, or lifetime.')
+        if stripe_sparsity_mode not in ['none', 'ordinary', 'routing']:
+            raise ValueError('Stripe sparsity mode must be set to none, ordinary, or routing.')
+        self.layer_sparsity_mode = layer_sparsity_mode
+        self.stripe_sparsity_mode = stripe_sparsity_mode
+
+        if layer_sparsity_mode == 'boosted':
             self.alpha = alpha
             self.beta = beta
             self.gamma = int(num_active_neurons / (stripe_dim * num_stripes))
             self.boosted_scores = torch.zeros(stripe_dim * num_stripes, requires_grad=False)
+
+        if stripe_sparsity_mode == 'routing':
+            self.routing_layer = nn.Linear(intermediate_dim, num_stripes)
 
     def _boosts(self):
         return torch.exp(self.beta * (self.gamma - self.boosted_scores))
@@ -55,7 +63,7 @@ class Net(nn.Module):
             self.boosted_scores += self.alpha * masks.sum(0)
         return masks * x
 
-    def batch_lifetime_sparsify(self, x):  # Applied to a batch.
+    def batch_lifetime_sparsify_layer(self, x):  # Applied to a batch.
         top_neurons = x.mean(0).topk(self.num_active_neurons).indices
         mask = torch.tensor([1 if index in top_neurons else 0
                              for index in range(self.stripe_dim * self.num_stripes)])
@@ -63,23 +71,43 @@ class Net(nn.Module):
         return x
 
     def sparsify_stripes(self, x):
-        avg_values = torch.mean(x, 1)
-        cluster_indices = avg_values.topk(self.num_active_stripes).indices
-        mask = torch.tensor([1 if j in cluster_indices else 0
-                             for j in range(len(avg_values))])
-        return (x.transpose(0, 1) * mask).transpose(0, 1)
+        output = []
+        for sample in x:
+            avg_values = torch.mean(sample, 1)
+            cluster_indices = avg_values.topk(self.num_active_stripes).indices
+            mask = torch.tensor([1 if j in cluster_indices else 0
+                                 for j in range(self.num_stripes)])
+            output.append((sample.transpose(0, 1) * mask).transpose(0, 1))
+        return torch.stack(output, dim=0)
+
+    def routing_sparsify_stripes(self, intermediate, stripe_data):
+        routing_scores = self.routing_layer(intermediate)
+        mask_data = []
+        for data in routing_scores:
+            cluster_indices = data.topk(self.num_active_stripes).indices
+            mask = torch.tensor([1 if j in cluster_indices else 0
+                                 for j in range(self.num_stripes)])
+            mask_data.append(data)
+        mask = torch.stack(mask_data, dim=0).unsqueeze(2)
+        return mask * stripe_data
 
     def encode(self, x):
         x = F.relu(self.layer1(x))
-        x = F.relu(self.layer2(x))
-        if self.mode == 'ordinary':
-            x = self.batch_sparsify_layer(x)
-        elif self.mode == 'boosted':
-            x = self.batch_boosted_sparsify_layer(x)
-        elif self.mode == 'lifetime':
-            x = self.batch_lifetime_sparsify(x)
-        x = x.reshape(-1, self.num_stripes, self.stripe_dim)
-        return torch.stack([self.sparsify_stripes(data) for data in x], dim=0)
+        stripe_data = F.relu(self.layer2(x))
+
+        if self.layer_sparsity_mode == 'ordinary':
+            stripe_data = self.batch_sparsify_layer(stripe_data)
+        elif self.layer_sparsity_mode == 'boosted':
+            stripe_data = self.batch_boosted_sparsify_layer(stripe_data)
+        elif self.layer_sparsity_mode == 'lifetime':
+            stripe_data = self.batch_lifetime_sparsify_layer(stripe_data)
+
+        stripe_data = stripe_data.reshape(-1, self.num_stripes, self.stripe_dim)
+        if self.stripe_sparsity_mode == 'ordinary':
+            stripe_data = self.sparsify_stripes(stripe_data)
+        elif self.stripe_sparsity_mode == 'routing':
+            stripe_data = self.routing_sparsify_stripes(x, stripe_data)
+        return stripe_data
 
     def decode(self, x):
         x = x.reshape(-1, self.num_stripes * self.stripe_dim)

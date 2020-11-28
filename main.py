@@ -20,7 +20,8 @@ parser.add_argument('--stripe_dim', type=int, default=20)
 parser.add_argument('--num_stripes', type=int, default=15)
 parser.add_argument('--num_active_neurons', type=int, default=15)
 parser.add_argument('--num_active_stripes', type=int, default=4)
-parser.add_argument('--mode', type=str, default='ordinary')  # Set to ordinary, boosted, or lifetime.
+parser.add_argument('--layer_sparsity_mode', type=str, default='none')  # Set to none, ordinary, boosted, or lifetime.
+parser.add_argument('--stripe_sparsity_mode', type=str, default='routing')  # Set to none, ordinary, or routing.
 
 # Boosting Flags - Only necessary when mode is set to boosted.
 parser.add_argument('--alpha', type=float, default=.8)
@@ -29,7 +30,7 @@ parser.add_argument('--beta', type=float, default=1.2)
 # Training Flags
 parser.add_argument('--lr', type=float, default=.01)
 parser.add_argument('--momentum', type=float, default=.9)
-parser.add_argument('--num_epochs', type=int, default=10)
+parser.add_argument('--num_epochs', type=int, default=2)
 parser.add_argument('--batch_size', type=int, default=8)
 parser.add_argument('--data_path', type=str, default='data.csv')
 parser.add_argument('--log_path', type=str, default='logs')
@@ -76,7 +77,8 @@ net = Net(args['intermediate_dim'],
           args['num_stripes'],
           args['num_active_neurons'],
           args['num_active_stripes'],
-          args['mode'],
+          args['layer_sparsity_mode'],
+          args['stripe_sparsity_mode'],
           args['alpha'],
           args['beta'])
 criterion = nn.MSELoss()
@@ -84,7 +86,11 @@ optimizer = optim.SGD(net.parameters(),
                       lr=args['lr'],
                       momentum=args['momentum'])
 timestamp = str(datetime.datetime.now()).replace(' ', '_')
-writers = [SummaryWriter(os.path.join(args['log_path'], args['mode'], timestamp, str(num)))
+root_path = os.path.join(args['log_path'],
+                         args['layer_sparsity_mode'], 
+                         args['stripe_sparsity_mode'],
+                         timestamp)
+writers = [SummaryWriter(os.path.join(root_path, str(num)))
            for num in range(args['num_stripes'])]
 
 for epoch in range(args['num_epochs']):
