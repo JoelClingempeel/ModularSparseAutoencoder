@@ -91,52 +91,57 @@ def log_activation_data(net, activation_writers, X_test, Y_test):
         stripe_writer.flush()
 
 
-data = pd.read_csv(args['data_path']).values
-Y = data[:, :1].transpose()[0]
-X = data[:, 1:] / 255
-X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.1)
-batch_size = args['batch_size']
-batch_no = len(X_train) // batch_size
+def main():
+    data = pd.read_csv(args['data_path']).values
+    Y = data[:, :1].transpose()[0]
+    X = data[:, 1:] / 255
+    X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.1)
+    batch_size = args['batch_size']
+    batch_no = len(X_train) // batch_size
 
-net = Net(args['intermediate_dim'],
-          args['stripe_dim'],
-          args['num_stripes'],
-          args['num_active_neurons'],
-          args['num_active_stripes'],
-          args['layer_sparsity_mode'],
-          args['stripe_sparsity_mode'],
-          args['alpha'],
-          args['beta'])
-criterion = nn.MSELoss()
-optimizer = optim.SGD(net.parameters(),
-                      lr=args['lr'],
-                      momentum=args['momentum'])
+    net = Net(args['intermediate_dim'],
+              args['stripe_dim'],
+              args['num_stripes'],
+              args['num_active_neurons'],
+              args['num_active_stripes'],
+              args['layer_sparsity_mode'],
+              args['stripe_sparsity_mode'],
+              args['alpha'],
+              args['beta'])
+    criterion = nn.MSELoss()
+    optimizer = optim.SGD(net.parameters(),
+                          lr=args['lr'],
+                          momentum=args['momentum'])
 
-timestamp = str(datetime.datetime.now()).replace(' ', '_')
-root_path = os.path.join(args['log_path'],
-                         args['layer_sparsity_mode'], 
-                         args['stripe_sparsity_mode'],
-                         timestamp)
-print(f'Logging results to path:  {root_path}')
-main_writer = SummaryWriter(root_path)
-activation_writers = [SummaryWriter(os.path.join(root_path, str(num)))
-           for num in range(args['num_stripes'])]
+    timestamp = str(datetime.datetime.now()).replace(' ', '_')
+    root_path = os.path.join(args['log_path'],
+                             args['layer_sparsity_mode'],
+                             args['stripe_sparsity_mode'],
+                             timestamp)
+    print(f'Logging results to path:  {root_path}')
+    main_writer = SummaryWriter(root_path)
+    activation_writers = [SummaryWriter(os.path.join(root_path, str(num)))
+                          for num in range(args['num_stripes'])]
 
-for epoch in range(args['num_epochs']):
-    train_loss = train_epoch(net,
-                             criterion,
-                             optimizer,
-                             X_train,
-                             batch_size,
-                             batch_no)
-    main_writer.add_scalar('train_loss', train_loss, epoch)
-    log_losses(net,
-               criterion,
-               main_writer, 
-               X_test, 
-               Y_test,
-               log_class_specific_losses=args['log_class_specific_losses'])
-    log_activation_data(net,
-                        activation_writers,
-                        X_test,
-                        Y_test)
+    for epoch in range(args['num_epochs']):
+        train_loss = train_epoch(net,
+                                 criterion,
+                                 optimizer,
+                                 X_train,
+                                 batch_size,
+                                 batch_no)
+        main_writer.add_scalar('train_loss', train_loss, epoch)
+        log_losses(net,
+                   criterion,
+                   main_writer,
+                   X_test,
+                   Y_test,
+                   log_class_specific_losses=args['log_class_specific_losses'])
+        log_activation_data(net,
+                            activation_writers,
+                            X_test,
+                            Y_test)
+
+
+if __name__ == '__main__':
+    main()
