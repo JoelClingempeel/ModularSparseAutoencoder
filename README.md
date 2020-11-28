@@ -1,8 +1,5 @@
-# Learn Stripes
-This repo contains experiments with different ways of learning stripes with the eventual aim of being used in a neural net based on the prefrontal cortex.
-The first step towards realizing this is to build something like an autoencoder where the neurons in the code layer are divided into groups such that only
-a limited number of groups may be active at once and train it in such a way that the groups specialize appropriately.
-
+# Modular Sparse Autoencoder
+The aim of this project is to experiment with ways of building sparse autoencoders which are modular in the sense that the code layer neurons are divided into clusters (called stripes in reference to stripes in the prefrontal cortex) such that only a limited number of clusters may be active at once.
 
 Each experiment uses two kinds of sparsity:
 * k-sparsity across an entire layer (ignoring boundaries between stripes).
@@ -25,6 +22,7 @@ Each experiment uses two kinds of sparsity:
     -  The k stripes with highest average activations remain active.
 * routing
     -  Each gate is turned on or off as controlled by selecting the top k after applying a linear transformation to the layer before the stripes.
+    -  When using this mode, one can set the *routing_l1_regularization* flag to introduce additional (soft) stripe sparsity by regularizing the routing layer.
 
 **Note:**  Tensorboard data is logged in paths of the form
 
