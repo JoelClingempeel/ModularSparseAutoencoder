@@ -7,28 +7,28 @@ Each experiment uses three kinds of sparsity:
 * Lifetime stripe sparsity.
 
 ### k-sparsity across an entire layer (ignoring boundaries between stripes):
-Controlled by the *layer_sparsity_mode* flag.
-* none
-* ordinary
+Controlled by the `layer_sparsity_mode` flag.
+* `none`
+* `ordinary`
     -  The k neurons with highest activations remain active.
-* lifetime
+* `lifetime`
     -  Sparsity is computed across a batch to encourage a wider range of neurons to be active.
     -  Reference:  https://arxiv.org/abs/1409.2752
-* boosted
+* `boosted`
     -  Sparsity is enhanced via boosting to make recently active neurons less likely to be active again.
     -  Reference:  https://arxiv.org/abs/1903.11257
 
 ### k-sparsity across stripes:
-Controlled by the *stripe_sparsity_mode* flag.
-* none
-* ordinary
+Controlled by the `stripe_sparsity_mode` flag.
+* `none`
+* `ordinary`
     -  The k stripes with highest average activations remain active.
-* routing
+* `routing`
     -  Each gate is turned on or off as controlled by selecting the top k after applying a linear transformation to the layer before the stripes.
-    -  When using this mode, one can set the *routing_l1_regularization* flag to introduce additional (soft) stripe sparsity by regularizing the routing layer.
+    -  When using this mode, one can set the `routing_l1_regularization` flag to introduce additional (soft) stripe sparsity by regularizing the routing layer.
 
 ### Lifetime stripe sparsity
-Controlled by the *active_stripes_per_batch* flag.
+Controlled by the `active_stripes_per_batch` flag.
 * With this flag, a given stripe may be only active for a fixed number of samples **per batch**. The goal is to vary what stripes are active across different samples.
     - This is applied **after** k-sparsity mechanisms across stripes.
 
