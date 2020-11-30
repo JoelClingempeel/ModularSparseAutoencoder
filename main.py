@@ -16,10 +16,10 @@ parser = argparse.ArgumentParser()
 
 # Architecture Flags
 parser.add_argument('--intermediate_dim', type=int, default=250)
-parser.add_argument('--stripe_dim', type=int, default=20)
+parser.add_argument('--stripe_dim', type=int, default=30)
 parser.add_argument('--num_stripes', type=int, default=15)
 parser.add_argument('--num_active_neurons', type=int, default=15)
-parser.add_argument('--num_active_stripes', type=int, default=12)
+parser.add_argument('--num_active_stripes', type=int, default=6)
 parser.add_argument('--layer_sparsity_mode', type=str, default='none')  # Set to none, ordinary, boosted, or lifetime.
 parser.add_argument('--stripe_sparsity_mode', type=str, default='routing')  # Set to none, ordinary, or routing.
 
@@ -28,13 +28,17 @@ parser.add_argument('--alpha', type=float, default=.8)
 parser.add_argument('--beta', type=float, default=1.2)
 
 # Routing Flags - Only necessary when stripe_sparsity_mode is set to routing.
-parser.add_argument('--routing_l1_regularization', type=float, default=.05)
+parser.add_argument('--routing_l1_regularization', type=float, default=0.)
 parser.add_argument('--log_average_routing_scores', type=bool, default=True)
+
+# Lifetime Stripe Flag - Only necessary when stripe_sparsity_mode is set to lifetime.
+# Within a stripe, this specifies the proportion of samples that may activate the stripe.
+parser.add_argument('--active_stripes_per_batch', type=float, default=.75)
 
 # Training Flags
 parser.add_argument('--lr', type=float, default=.01)
 parser.add_argument('--momentum', type=float, default=.9)
-parser.add_argument('--num_epochs', type=int, default=15)
+parser.add_argument('--num_epochs', type=int, default=12)
 parser.add_argument('--batch_size', type=int, default=8)
 parser.add_argument('--data_path', type=str, default='data.csv')
 parser.add_argument('--log_path', type=str, default='logs')
@@ -135,6 +139,7 @@ def main():
               args['stripe_sparsity_mode'],
               args['alpha'],
               args['beta'],
+              args['active_stripes_per_batch'],
               args['log_average_routing_scores'])
     criterion = nn.MSELoss()
     optimizer = optim.SGD(net.parameters(),

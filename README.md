@@ -1,9 +1,10 @@
 # Modular Sparse Autoencoder
 The aim of this project is to experiment with ways of building sparse autoencoders which are modular in the sense that the code layer neurons are divided into clusters (called **stripes** in reference to stripes in the prefrontal cortex) such that only a limited number of clusters may be active at once.
 
-Each experiment uses two kinds of sparsity:
+Each experiment uses three kinds of sparsity:
 * k-sparsity across an entire layer (ignoring boundaries between stripes).
 * k-sparsity across stripes ranked by average activation.
+* Lifetime stripe sparsity.
 
 ### k-sparsity across an entire layer (ignoring boundaries between stripes):
 Controlled by the *layer_sparsity_mode* flag.
@@ -26,12 +27,15 @@ Controlled by the *stripe_sparsity_mode* flag.
     -  Each gate is turned on or off as controlled by selecting the top k after applying a linear transformation to the layer before the stripes.
     -  When using this mode, one can set the *routing_l1_regularization* flag to introduce additional (soft) stripe sparsity by regularizing the routing layer.
 
-**Note:**  Tensorboard data is logged in paths of the form
+### Lifetime stripe sparsity
+Controlled by the *active_stripes_per_batch* flag.
+* With this flag, a given stripe may be only active for a fixed number of samples **per batch**. The goal is to vary what stripes are active across different samples.
+    - This is applied **after** k-sparsity mechanisms across stripes.
 
-```[log_dir]/[layer_sparsity_mode]/[stripe_sparsity_mode]/[timestamp]/[stripe]```
+Tensorboard data for a run is logged in a path of the form:
 
-so that for each digit, different stripes may be shown on the same graph. It is recommended to give tensorboard a specific timestamp by running
+```[log_dir]/[layer_sparsity_mode]/[stripe_sparsity_mode]/[timestamp]```
+
+To view, run:
 
 ```tensorboard --logdir [log_dir]/[layer_sparsity_mode]/[stripe_sparsity_mode]/[timestamp]```
-
-to avoid cluttering with data across runs.
