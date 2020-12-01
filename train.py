@@ -58,6 +58,7 @@ def log_activation_data(net, activation_writers, X_test, Y_test, num_stripes, ep
             stripe_writer.add_scalar(f'digit_{digit}', stripe_stats[digit][stripe], epoch)
         stripe_writer.flush()
 
+
 def log_average_routing_scores(net, X, Y, writers, epoch):
     running_scores = {}
     running_counts = {}
@@ -78,6 +79,7 @@ def log_average_routing_scores(net, X, Y, writers, epoch):
             routing = running_scores[str(digit)][stripe].item() / running_counts[str(digit)]
             stripe_writer.add_scalar(f'digit_routing_{digit}', routing, epoch)
         stripe_writer.flush()
+
 
 def train(net,
           criterion,
@@ -124,4 +126,3 @@ def train(net,
                                        Y_test,
                                        activation_writers,
                                        epoch)
-

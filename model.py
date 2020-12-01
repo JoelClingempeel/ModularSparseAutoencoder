@@ -14,8 +14,7 @@ class Net(nn.Module):
                  stripe_sparsity_mode,
                  alpha,
                  beta,
-                 active_stripes_per_batch,
-                 log_average_routing_scores):
+                 active_stripes_per_batch):
         super(Net, self).__init__()
         self.layer1 = nn.Linear(784, intermediate_dim)
         self.layer2 = nn.Linear(intermediate_dim, stripe_dim * num_stripes)
@@ -39,7 +38,6 @@ class Net(nn.Module):
             self.beta = beta
             self.gamma = int(num_active_neurons / (stripe_dim * num_stripes))
             self.boosted_scores = torch.zeros(stripe_dim * num_stripes, requires_grad=False)
-
 
         if stripe_sparsity_mode == 'routing':
             self.routing_layer = nn.Linear(intermediate_dim, num_stripes)
@@ -118,13 +116,13 @@ class Net(nn.Module):
             stripe_data = self.batch_boosted_sparsify_layer(stripe_data)
         elif self.layer_sparsity_mode == 'lifetime':
             stripe_data = self.batch_lifetime_sparsify_layer(stripe_data)
-        
+
         stripe_data = stripe_data.reshape(-1, self.num_stripes, self.stripe_dim)
         if self.stripe_sparsity_mode == 'ordinary':
             stripe_data = self.sparsify_stripes(stripe_data)
         elif self.stripe_sparsity_mode == 'routing':
             stripe_data = self.routing_sparsify_stripes(x, stripe_data)
-        
+
         if self.active_stripes_per_batch < 1:
             stripe_data = self.lifetime_sparsify_stripes(stripe_data)
         return stripe_data

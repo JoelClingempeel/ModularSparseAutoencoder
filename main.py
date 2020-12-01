@@ -64,8 +64,7 @@ def main():
               args['stripe_sparsity_mode'],
               args['alpha'],
               args['beta'],
-              args['active_stripes_per_batch'],
-              args['log_average_routing_scores'])
+              args['active_stripes_per_batch'])
     criterion = nn.MSELoss()
     optimizer = optim.SGD(net.parameters(),
                           lr=args['lr'],
@@ -80,7 +79,8 @@ def main():
 
     routing_l1_regularization = (args['routing_l1_regularization'] if args['stripe_sparsity_mode'] == 'routing' else 0)
     log_class_specific_losses = args['log_class_specific_losses']
-    should_log_average_routing_scores = (args['stripe_sparsity_mode'] == 'routing' and args['log_average_routing_scores'])
+    should_log_average_routing_scores = (
+                args['stripe_sparsity_mode'] == 'routing' and args['log_average_routing_scores'])
 
     train(net,
           criterion,
@@ -96,7 +96,6 @@ def main():
           routing_l1_regularization,
           log_class_specific_losses,
           should_log_average_routing_scores)
- 
 
 
 if __name__ == '__main__':
