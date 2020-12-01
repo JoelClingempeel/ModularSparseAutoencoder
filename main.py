@@ -36,7 +36,7 @@ parser.add_argument('--active_stripes_per_batch', type=float, default=1.)
 # Training Flags
 parser.add_argument('--lr', type=float, default=.01)
 parser.add_argument('--momentum', type=float, default=.9)
-parser.add_argument('--num_epochs', type=int, default=3)
+parser.add_argument('--num_epochs', type=int, default=1)
 parser.add_argument('--batch_size', type=int, default=8)
 parser.add_argument('--data_path', type=str, default='data.csv')
 parser.add_argument('--log_path', type=str, default='logs')
@@ -45,7 +45,7 @@ parser.add_argument('--log_class_specific_losses', type=bool, default=False)
 args = vars(parser.parse_args())
 
 
-def main():
+def main(args):
     data = pd.read_csv(args['data_path']).values
     Y = data[:, :1].transpose()[0]
     X = data[:, 1:] / 255
@@ -99,4 +99,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    main(args)
