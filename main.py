@@ -3,23 +3,21 @@ import datetime
 import os
 
 import pandas as pd
-from sklearn.utils import shuffle
 from sklearn.model_selection import train_test_split
-import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.utils.tensorboard import SummaryWriter
 
 from model import Net
+from train import train
 
 parser = argparse.ArgumentParser()
 
 # Architecture Flags
 parser.add_argument('--intermediate_dim', type=int, default=250)
-parser.add_argument('--stripe_dim', type=int, default=30)
-parser.add_argument('--num_stripes', type=int, default=15)
+parser.add_argument('--stripe_dim', type=int, default=5)
+parser.add_argument('--num_stripes', type=int, default=30)
 parser.add_argument('--num_active_neurons', type=int, default=15)
-parser.add_argument('--num_active_stripes', type=int, default=6)
+parser.add_argument('--num_active_stripes', type=int, default=5)
 parser.add_argument('--layer_sparsity_mode', type=str, default='none')  # Set to none, ordinary, boosted, or lifetime.
 parser.add_argument('--stripe_sparsity_mode', type=str, default='routing')  # Set to none, ordinary, or routing.
 
@@ -33,12 +31,12 @@ parser.add_argument('--log_average_routing_scores', type=bool, default=True)
 
 # Lifetime Stripe Flag - Only necessary when stripe_sparsity_mode is set to lifetime.
 # Within a stripe, this specifies the proportion of samples that may activate the stripe.
-parser.add_argument('--active_stripes_per_batch', type=float, default=.75)
+parser.add_argument('--active_stripes_per_batch', type=float, default=1.)
 
 # Training Flags
 parser.add_argument('--lr', type=float, default=.01)
 parser.add_argument('--momentum', type=float, default=.9)
-parser.add_argument('--num_epochs', type=int, default=12)
+parser.add_argument('--num_epochs', type=int, default=3)
 parser.add_argument('--batch_size', type=int, default=8)
 parser.add_argument('--data_path', type=str, default='data.csv')
 parser.add_argument('--log_path', type=str, default='logs')
@@ -47,86 +45,13 @@ parser.add_argument('--log_class_specific_losses', type=bool, default=False)
 args = vars(parser.parse_args())
 
 
-def train_epoch(net, criterion, optimizer, data, batch_size, batch_no, routing_l1_regularization=0):
-    data = shuffle(data)
-    total_loss = 0
-    for i in range(batch_no):
-        start = i * batch_size
-        end = start + batch_size
-        x_var = torch.FloatTensor(data[start:end])
-
-        optimizer.zero_grad()
-        xpred_var = net(x_var)
-        loss = criterion(xpred_var, x_var)
-        if routing_l1_regularization:
-            loss += routing_l1_regularization * torch.norm(net.routing_layer.weight, p=1)
-        loss.backward(retain_graph=True)
-        optimizer.step()
-
-        total_loss += loss.item()
-    return total_loss / (batch_size * batch_no)
-
-
-def log_losses(net, criterion, writer, X, Y, epoch, log_class_specific_losses=True):
-    running_losses = {'overall': 0}
-    running_counts = {'overall': 0}
-    if log_class_specific_losses:
-        for num in range(10):
-            running_losses[str(num)] = 0
-            running_counts[str(num)] = 0
-
-    with torch.no_grad():
-        for datum, label in zip(X, Y):
-            x_var = torch.FloatTensor(datum).unsqueeze(0)
-            xpred_var = net(x_var)
-            loss = criterion(xpred_var, x_var).item()
-            running_losses['overall'] += loss
-            running_counts['overall'] += 1
-            if log_class_specific_losses:
-                key = str(label.item())
-                running_losses[key] += loss
-                running_counts[key] += 1
-
-    for key, loss in running_losses.items():
-        writer.add_scalar(f'test_loss_{key}', loss / running_counts[key], epoch)
-    writer.flush()
-
-
-def log_activation_data(net, activation_writers, X_test, Y_test, epoch):
-    stripe_stats = net.get_stripe_stats(X_test, Y_test)
-    for stripe in range(args['num_stripes']):
-        stripe_writer = activation_writers[stripe]
-        for digit in range(10):
-            stripe_writer.add_scalar(f'digit_{digit}', stripe_stats[digit][stripe], epoch)
-        stripe_writer.flush()
-
-def log_average_routing_scores(net, X, Y, writers, epoch):
-    running_scores = {}
-    running_counts = {}
-    for num in range(10):
-        running_scores[str(num)] = torch.zeros(net.num_stripes)
-        running_counts[str(num)] = 0
-
-    with torch.no_grad():
-        for datum, label in zip(X, Y):
-            x_var = torch.FloatTensor(datum).unsqueeze(0)
-            digit = str(label.item())
-            running_scores[digit] += net.get_routing_scores(x_var).squeeze(0)
-            running_counts[digit] += 1
-
-    for stripe in range(net.num_stripes):
-        stripe_writer = writers[stripe]
-        for digit in range(10):
-            routing = running_scores[str(digit)][stripe].item() / running_counts[str(digit)]
-            stripe_writer.add_scalar(f'digit_routing_{digit}', routing, epoch)
-        stripe_writer.flush()
-
-
 def main():
     data = pd.read_csv(args['data_path']).values
     Y = data[:, :1].transpose()[0]
     X = data[:, 1:] / 255
     X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.1)
+    num_stripes = args['num_stripes']
+    num_epochs = args['num_epochs']
     batch_size = args['batch_size']
     batch_no = len(X_train) // batch_size
 
@@ -152,40 +77,26 @@ def main():
                              args['stripe_sparsity_mode'],
                              timestamp)
     print(f'Logging results to path:  {root_path}')
-    main_writer = SummaryWriter(root_path)
-    activation_writers = [SummaryWriter(os.path.join(root_path, str(num)))
-                          for num in range(args['num_stripes'])]
-    # This avoids a program crash if routing_l1_regularization is set but not stripe_sparsity_mode.
+
     routing_l1_regularization = (args['routing_l1_regularization'] if args['stripe_sparsity_mode'] == 'routing' else 0)
+    log_class_specific_losses = args['log_class_specific_losses']
+    should_log_average_routing_scores = (args['stripe_sparsity_mode'] == 'routing' and args['log_average_routing_scores'])
 
-    for epoch in range(args['num_epochs']):
-        train_loss = train_epoch(net,
-                                 criterion,
-                                 optimizer,
-                                 X_train,
-                                 batch_size,
-                                 batch_no,
-                                 routing_l1_regularization=routing_l1_regularization)
-        main_writer.add_scalar('train_loss', train_loss, epoch)
-        log_losses(net,
-                   criterion,
-                   main_writer,
-                   X_test,
-                   Y_test,
-                   epoch,
-                   log_class_specific_losses=args['log_class_specific_losses'])
-        log_activation_data(net,
-                            activation_writers,
-                            X_test,
-                            Y_test,
-                            epoch)
-
-        if args['stripe_sparsity_mode'] == 'routing' and args['log_average_routing_scores']:
-            log_average_routing_scores(net,
-                                       X_test,
-                                       Y_test,
-                                       activation_writers,
-                                       epoch)
+    train(net,
+          criterion,
+          optimizer,
+          root_path,
+          X_train,
+          X_test,
+          Y_test,
+          num_stripes,
+          num_epochs,
+          batch_size,
+          batch_no,
+          routing_l1_regularization,
+          log_class_specific_losses,
+          should_log_average_routing_scores)
+ 
 
 
 if __name__ == '__main__':
