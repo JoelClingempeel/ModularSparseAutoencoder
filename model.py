@@ -161,3 +161,22 @@ class Net(nn.Module):
     def get_routing_scores(self, x):
         x = F.relu(self.layer1(x))
         return self.routing_layer(x)
+
+    def get_average_activations(self, X, Y):
+        running_activations = {}
+        running_counts = {}
+        for digit in range(10):
+            running_activations[str(digit)] = torch.zeros(self.num_stripes, self.stripe_dim)
+            running_counts[str(digit)] = 0
+
+        with torch.no_grad():
+            for datum, label in zip(X, Y):
+                x_var = torch.FloatTensor(datum).unsqueeze(0)
+                digit = str(label.item())
+                running_activations[digit] += self.encode(x_var).squeeze(0)
+                running_counts[digit] += 1
+
+        return torch.stack([running_activations[str(digit)] / running_counts[str(digit)]
+                            for digit in range(10)],
+                           dim=0)
+

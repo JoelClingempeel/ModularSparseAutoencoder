@@ -6,7 +6,7 @@ from main import main
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument('--hyperparameters_config', type=str, default='hyperparameters.json')
+parser.add_argument('--hyperparameters_config', type=str, default='hyperparameters_config.json')
 
 args = vars(parser.parse_args())
 

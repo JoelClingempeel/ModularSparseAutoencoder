@@ -1,5 +1,6 @@
 import argparse
 import datetime
+import json
 import os
 
 import pandas as pd
@@ -36,11 +37,12 @@ parser.add_argument('--active_stripes_per_batch', type=float, default=1.)
 # Training Flags
 parser.add_argument('--lr', type=float, default=.01)
 parser.add_argument('--momentum', type=float, default=.9)
-parser.add_argument('--num_epochs', type=int, default=1)
+parser.add_argument('--num_epochs', type=int, default=3)
 parser.add_argument('--batch_size', type=int, default=8)
 parser.add_argument('--data_path', type=str, default='data.csv')
 parser.add_argument('--log_path', type=str, default='logs')
 parser.add_argument('--log_class_specific_losses', type=bool, default=False)
+parser.add_argument('--log_average_activations', type=str, default=True)
 
 args = vars(parser.parse_args())
 
@@ -96,6 +98,12 @@ def main(args):
           routing_l1_regularization,
           log_class_specific_losses,
           should_log_average_routing_scores)
+
+    if args['log_average_activations']:
+        average_activations_path = os.path.join(root_path, 'average_activations.json')
+        with open(average_activations_path, 'w') as f:
+            average_activations = net.get_average_activations(X_test, Y_test).tolist()
+            f.write(json.dumps(average_activations))
 
 
 if __name__ == '__main__':
