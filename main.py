@@ -5,6 +5,7 @@ import os
 
 import pandas as pd
 from sklearn.model_selection import train_test_split
+import torch
 import torch.nn as nn
 import torch.optim as optim
 
@@ -85,6 +86,8 @@ def main(args):
     should_log_average_routing_scores = (
                 args['stripe_sparsity_mode'] == 'routing' and args['log_average_routing_scores'])
 
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
     train(net,
           criterion,
           optimizer,
@@ -98,12 +101,13 @@ def main(args):
           batch_no,
           routing_l1_regularization,
           log_class_specific_losses,
-          should_log_average_routing_scores)
+          should_log_average_routing_scores,
+          device)
 
     if args['log_average_activations']:
         average_activations_path = os.path.join(root_path, 'average_activations.json')
         with open(average_activations_path, 'w') as f:
-            average_activations = net.get_average_activations(X_test, Y_test).tolist()
+            average_activations = net.get_average_activations(X_test, Y_test, device=device).tolist()
             f.write(json.dumps(average_activations))
 
     if args['log_experiment_flags']:

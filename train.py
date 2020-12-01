@@ -5,13 +5,16 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 
 
-def train_epoch(net, criterion, optimizer, data, batch_size, batch_no, routing_l1_regularization=0):
+def train_epoch(net, criterion, optimizer, data, batch_size, batch_no, device, routing_l1_regularization=0):
     data = shuffle(data)
     total_loss = 0
     for i in range(batch_no):
         start = i * batch_size
         end = start + batch_size
         x_var = torch.FloatTensor(data[start:end])
+
+        x_var.to(device)
+        net.to(device)
 
         optimizer.zero_grad()
         xpred_var = net(x_var)
@@ -25,7 +28,7 @@ def train_epoch(net, criterion, optimizer, data, batch_size, batch_no, routing_l
     return total_loss / (batch_size * batch_no)
 
 
-def log_losses(net, criterion, writer, X, Y, epoch, log_class_specific_losses=True):
+def log_losses(net, criterion, writer, X, Y, epoch, device, log_class_specific_losses=True):
     running_losses = {'overall': 0}
     running_counts = {'overall': 0}
     if log_class_specific_losses:
@@ -36,6 +39,7 @@ def log_losses(net, criterion, writer, X, Y, epoch, log_class_specific_losses=Tr
     with torch.no_grad():
         for datum, label in zip(X, Y):
             x_var = torch.FloatTensor(datum).unsqueeze(0)
+            x_var.to(device)
             xpred_var = net(x_var)
             loss = criterion(xpred_var, x_var).item()
             running_losses['overall'] += loss
@@ -50,8 +54,8 @@ def log_losses(net, criterion, writer, X, Y, epoch, log_class_specific_losses=Tr
     writer.flush()
 
 
-def log_activation_data(net, activation_writers, X_test, Y_test, num_stripes, epoch):
-    stripe_stats = net.get_stripe_stats(X_test, Y_test)
+def log_activation_data(net, activation_writers, X_test, Y_test, num_stripes, epoch, device):
+    stripe_stats = net.get_stripe_stats(X_test, Y_test, device=device)
     for stripe in range(num_stripes):
         stripe_writer = activation_writers[stripe]
         for digit in range(10):
@@ -59,7 +63,7 @@ def log_activation_data(net, activation_writers, X_test, Y_test, num_stripes, ep
         stripe_writer.flush()
 
 
-def log_average_routing_scores(net, X, Y, writers, epoch):
+def log_average_routing_scores(net, X, Y, writers, epoch, device):
     running_scores = {}
     running_counts = {}
     for num in range(10):
@@ -69,6 +73,7 @@ def log_average_routing_scores(net, X, Y, writers, epoch):
     with torch.no_grad():
         for datum, label in zip(X, Y):
             x_var = torch.FloatTensor(datum).unsqueeze(0)
+            x_var.to(device)
             digit = str(label.item())
             running_scores[digit] += net.get_routing_scores(x_var).squeeze(0)
             running_counts[digit] += 1
@@ -94,7 +99,8 @@ def train(net,
           batch_no,
           routing_l1_regularization,
           log_class_specific_losses,
-          should_log_average_routing_scores):
+          should_log_average_routing_scores,
+          device):
     main_writer = SummaryWriter(root_path)
     activation_writers = [SummaryWriter(os.path.join(root_path, str(num)))
                           for num in range(num_stripes)]
@@ -105,6 +111,7 @@ def train(net,
                                  X_train,
                                  batch_size,
                                  batch_no,
+                                 device,
                                  routing_l1_regularization=routing_l1_regularization)
         main_writer.add_scalar('train_loss', train_loss, epoch)
         log_losses(net,
@@ -113,16 +120,19 @@ def train(net,
                    X_test,
                    Y_test,
                    epoch,
+                   device,
                    log_class_specific_losses=log_class_specific_losses)
         log_activation_data(net,
                             activation_writers,
                             X_test,
                             Y_test,
                             num_stripes,
-                            epoch)
+                            epoch,
+                            device)
         if should_log_average_routing_scores:
             log_average_routing_scores(net,
                                        X_test,
                                        Y_test,
                                        activation_writers,
-                                       epoch)
+                                       epoch,
+                                       device)

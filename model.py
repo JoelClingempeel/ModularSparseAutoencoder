@@ -144,7 +144,7 @@ class Net(nn.Module):
         return [j for j, stripe in enumerate(code)
                 if not torch.all(torch.eq(stripe, zero_stripe))]
 
-    def get_stripe_stats(self, X, Y):
+    def get_stripe_stats(self, X, Y, device='cpu'):
         activations = {}
         for i in range(10):
             activations[i] = {}
@@ -153,7 +153,9 @@ class Net(nn.Module):
 
         for k in range(len(Y)):
             digit = Y[k]
-            stripes = self.get_active_stripes(torch.FloatTensor(X[k: k + 1]))
+            x_var = torch.FloatTensor(X[k: k + 1])
+            x_var.to(device) 
+            stripes = self.get_active_stripes(x_var)
             for stripe in stripes:
                 activations[digit][stripe] += 1
         return activations
@@ -162,7 +164,7 @@ class Net(nn.Module):
         x = F.relu(self.layer1(x))
         return self.routing_layer(x)
 
-    def get_average_activations(self, X, Y):
+    def get_average_activations(self, X, Y, device='cpu'):
         running_activations = {}
         running_counts = {}
         for digit in range(10):
@@ -172,6 +174,7 @@ class Net(nn.Module):
         with torch.no_grad():
             for datum, label in zip(X, Y):
                 x_var = torch.FloatTensor(datum).unsqueeze(0)
+                x_var.to(device)
                 digit = str(label.item())
                 running_activations[digit] += self.encode(x_var).squeeze(0)
                 running_counts[digit] += 1
