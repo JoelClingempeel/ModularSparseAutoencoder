@@ -37,12 +37,13 @@ parser.add_argument('--active_stripes_per_batch', type=float, default=1.)
 # Training Flags
 parser.add_argument('--lr', type=float, default=.01)
 parser.add_argument('--momentum', type=float, default=.9)
-parser.add_argument('--num_epochs', type=int, default=3)
+parser.add_argument('--num_epochs', type=int, default=12)
 parser.add_argument('--batch_size', type=int, default=8)
 parser.add_argument('--data_path', type=str, default='data.csv')
 parser.add_argument('--log_path', type=str, default='logs')
 parser.add_argument('--log_class_specific_losses', type=bool, default=False)
-parser.add_argument('--log_average_activations', type=str, default=True)
+parser.add_argument('--log_average_activations', type=bool, default=True)
+parser.add_argument('--log_experiment_flags', type=bool, default=True)
 
 args = vars(parser.parse_args())
 
@@ -105,6 +106,10 @@ def main(args):
             average_activations = net.get_average_activations(X_test, Y_test).tolist()
             f.write(json.dumps(average_activations))
 
+    if args['log_experiment_flags']:
+        flag_values_path = os.path.join(root_path, 'experiment_config.json')
+        with open(flag_values_path, 'w') as f:
+            f.write(json.dumps(args))
 
 if __name__ == '__main__':
     main(args)

@@ -1,9 +1,9 @@
 {
   "intermediate_dim": [250],
-  "stripe_dim": [5, 8],
+  "stripe_dim": [1, 3, 6, 9, 12],
   "num_stripes": [30],
-  "num_active_neurons": [15],
-  "num_active_stripes": [5, 8],
+  "num_active_neurons": [15, 30, 45],
+  "num_active_stripes": [3, 6, 9],
   "layer_sparsity_mode": ["none"],
   "stripe_sparsity_mode": ["routing"],
   "alpha": [0.8],
@@ -13,9 +13,11 @@
   "active_stripes_per_batch": [1.0],
   "lr": [0.01],
   "momentum": [0.9],
-  "num_epochs": [3],
+  "num_epochs": [12],
   "batch_size": [8],
   "data_path": ["data.csv"],
   "log_path": ["logs"],
-  "log_class_specific_losses": [false]
+  "log_class_specific_losses": [false],
+  "log_average_activations": [true],
+  "log_experiment_flags": [true]
 }
