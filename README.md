@@ -32,6 +32,7 @@ Controlled by the `active_stripes_per_batch` flag.
 * With this flag, a given stripe may be only active for a fixed number of samples **per batch**. The goal is to vary what stripes are active across different samples.
     - This is applied **after** k-sparsity mechanisms across stripes.
 
+### Logging
 Tensorboard data for a run is logged in a path of the form:
 
 ```[log_dir]/[layer_sparsity_mode]/[stripe_sparsity_mode]/[timestamp]```
@@ -39,3 +40,7 @@ Tensorboard data for a run is logged in a path of the form:
 To view, run:
 
 ```tensorboard --logdir [log_dir]/[layer_sparsity_mode]/[stripe_sparsity_mode]/[timestamp]```
+
+### Automated Hyperparameter Tuning
+Modify the `hyperparameters_config.json` so that for each flag it lists the different possibilies you wish to test, and then run `tune_parameters.py`.
+(Alternatively, you can use a different config file if you change the path in the `hyperparameters_config` flag in `tune_parameters.py`.)
