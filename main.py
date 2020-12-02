@@ -58,6 +58,8 @@ def main(args):
     num_epochs = args['num_epochs']
     batch_size = args['batch_size']
     batch_no = len(X_train) // batch_size
+    
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     net = Net(args['intermediate_dim'],
               args['stripe_dim'],
@@ -68,7 +70,8 @@ def main(args):
               args['stripe_sparsity_mode'],
               args['alpha'],
               args['beta'],
-              args['active_stripes_per_batch'])
+              args['active_stripes_per_batch'],
+              device)
     criterion = nn.MSELoss()
     optimizer = optim.SGD(net.parameters(),
                           lr=args['lr'],
@@ -86,8 +89,6 @@ def main(args):
     should_log_average_routing_scores = (
                 args['stripe_sparsity_mode'] == 'routing' and args['log_average_routing_scores'])
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
     train(net,
           criterion,
           optimizer,
@@ -101,8 +102,7 @@ def main(args):
           batch_no,
           routing_l1_regularization,
           log_class_specific_losses,
-          should_log_average_routing_scores,
-          device)
+          should_log_average_routing_scores)
 
     if args['log_average_activations']:
         average_activations_path = os.path.join(root_path, 'average_activations.json')

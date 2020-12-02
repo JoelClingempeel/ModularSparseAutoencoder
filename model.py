@@ -14,7 +14,8 @@ class Net(nn.Module):
                  stripe_sparsity_mode,
                  alpha,
                  beta,
-                 active_stripes_per_batch):
+                 active_stripes_per_batch,
+                 device):
         super(Net, self).__init__()
         self.layer1 = nn.Linear(784, intermediate_dim)
         self.layer2 = nn.Linear(intermediate_dim, stripe_dim * num_stripes)
@@ -37,31 +38,33 @@ class Net(nn.Module):
             self.alpha = alpha
             self.beta = beta
             self.gamma = int(num_active_neurons / (stripe_dim * num_stripes))
-            self.boosted_scores = torch.zeros(stripe_dim * num_stripes, requires_grad=False)
+            self.boosted_scores = torch.zeros(stripe_dim * num_stripes, requires_grad=False).to(device)
 
         if stripe_sparsity_mode == 'routing':
             self.routing_layer = nn.Linear(intermediate_dim, num_stripes)
 
         self.active_stripes_per_batch = active_stripes_per_batch
 
+        self.device = device
+
     def _boosts(self):
-        return torch.exp(self.beta * (self.gamma - self.boosted_scores))
+        return torch.exp(self.beta * (self.gamma - self.boosted_scores)).to(self.device)
 
     def sparsify_layer(self, x):  # Applied to an individual image.
         indices = x.topk(self.num_active_neurons).indices
         mask = torch.tensor([1 if j in indices else 0
-                             for j in range(len(x))])
+                             for j in range(len(x))]).to(device)
         return x * mask
 
     def batch_sparsify_layer(self, x):
-        return torch.stack([self.sparsify_layer(data) for data in x], dim=0)
+        return torch.stack([self.sparsify_layer(data) for data in x], dim=0).to(self.device)
 
     def batch_boosted_sparsify_layer(self, x):
         # Calculate masks with boosting, then update boost scores, and then apply masks.
         with torch.no_grad():
             masks = torch.stack([self.sparsify_layer(self._boosts() * datum)
                                  for datum in x],
-                                dim=0)
+                                dim=0).to(self.device)
             self.boosted_scores *= (1 - self.alpha)
             self.boosted_scores += self.alpha * masks.sum(0)
         return masks * x
@@ -69,7 +72,7 @@ class Net(nn.Module):
     def batch_lifetime_sparsify_layer(self, x):  # Applied to a batch.
         top_neurons = x.mean(0).topk(self.num_active_neurons).indices
         mask = torch.tensor([1 if index in top_neurons else 0
-                             for index in range(self.stripe_dim * self.num_stripes)])
+                             for index in range(self.stripe_dim * self.num_stripes)]).to(self.device)
         x = mask * x
         return x
 
@@ -79,9 +82,9 @@ class Net(nn.Module):
             avg_values = torch.mean(sample, 1)
             cluster_indices = avg_values.topk(self.num_active_stripes).indices
             mask = torch.tensor([1 if j in cluster_indices else 0
-                                 for j in range(self.num_stripes)])
+                                 for j in range(self.num_stripes)]).to(self.device)
             output.append((sample.transpose(0, 1) * mask).transpose(0, 1))
-        return torch.stack(output, dim=0)
+        return torch.stack(output, dim=0).to(self.device)
 
     def lifetime_sparsify_stripes(self, x):
         num_active = int(self.active_stripes_per_batch * len(x))
@@ -90,9 +93,9 @@ class Net(nn.Module):
         for stripe in stripe_avg_values:
             top_samples = stripe.topk(num_active).indices  # Topk applied across batch.
             stripe_mask = torch.tensor([1 if j in top_samples else 0
-                                        for j in range(len(stripe))])
+                                        for j in range(len(stripe))]).to(self.device)
             mask_data.append(stripe_mask)
-        mask = torch.stack(mask_data, dim=1)
+        mask = torch.stack(mask_data, dim=1).to(self.device)
         return mask.unsqueeze(2) * x
 
     def routing_sparsify_stripes(self, intermediate, stripe_data):
@@ -101,9 +104,9 @@ class Net(nn.Module):
         for data in routing_scores:
             cluster_indices = data.topk(self.num_active_stripes).indices
             mask = torch.tensor([1 if j in cluster_indices else 0
-                                 for j in range(self.num_stripes)])
+                                 for j in range(self.num_stripes)]).to(self.device)
             mask_data.append(mask)
-        mask = torch.stack(mask_data, dim=0) * routing_scores
+        mask = torch.stack(mask_data, dim=0).to(self.device) * routing_scores
         return mask.unsqueeze(2) * stripe_data
 
     def encode(self, x):
@@ -140,11 +143,11 @@ class Net(nn.Module):
 
     def get_active_stripes(self, x):
         code = self.encode(x).squeeze(0)
-        zero_stripe = torch.zeros(self.stripe_dim)
+        zero_stripe = torch.zeros(self.stripe_dim).to(self.device)
         return [j for j, stripe in enumerate(code)
                 if not torch.all(torch.eq(stripe, zero_stripe))]
 
-    def get_stripe_stats(self, X, Y, device='cpu'):
+    def get_stripe_stats(self, X, Y):
         activations = {}
         for i in range(10):
             activations[i] = {}
@@ -154,7 +157,7 @@ class Net(nn.Module):
         for k in range(len(Y)):
             digit = Y[k]
             x_var = torch.FloatTensor(X[k: k + 1])
-            x_var.to(device) 
+            x_var = x_var.to(self.device) 
             stripes = self.get_active_stripes(x_var)
             for stripe in stripes:
                 activations[digit][stripe] += 1
@@ -168,18 +171,18 @@ class Net(nn.Module):
         running_activations = {}
         running_counts = {}
         for digit in range(10):
-            running_activations[str(digit)] = torch.zeros(self.num_stripes, self.stripe_dim)
+            running_activations[str(digit)] = torch.zeros(self.num_stripes, self.stripe_dim).to(self.device)
             running_counts[str(digit)] = 0
 
         with torch.no_grad():
             for datum, label in zip(X, Y):
                 x_var = torch.FloatTensor(datum).unsqueeze(0)
-                x_var.to(device)
+                x_var = x_var.to(device)
                 digit = str(label.item())
                 running_activations[digit] += self.encode(x_var).squeeze(0)
                 running_counts[digit] += 1
 
         return torch.stack([running_activations[str(digit)] / running_counts[str(digit)]
                             for digit in range(10)],
-                           dim=0)
+                           dim=0).to(self.device)
 
