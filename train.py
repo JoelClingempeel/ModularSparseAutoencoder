@@ -102,6 +102,7 @@ def train(net,
     main_writer = SummaryWriter(root_path)
     activation_writers = [SummaryWriter(os.path.join(root_path, str(num)))
                           for num in range(num_stripes)]
+
     for epoch in range(num_epochs):
         train_loss = train_epoch(net,
                                  criterion,
@@ -130,3 +131,7 @@ def train(net,
                                        Y_test,
                                        activation_writers,
                                        epoch)
+
+    main_writer.close()
+    for writer in activation_writers:
+        writer.close()
