@@ -19,5 +19,6 @@
   "log_path": ["logs"],
   "log_class_specific_losses": [false],
   "log_average_activations": [true],
-  "log_experiment_flags": [true]
+  "log_experiment_flags": [true],
+  "use_cuda_if_available": [true]
 }

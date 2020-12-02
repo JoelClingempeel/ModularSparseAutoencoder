@@ -45,6 +45,7 @@ parser.add_argument('--log_path', type=str, default='logs')
 parser.add_argument('--log_class_specific_losses', type=bool, default=False)
 parser.add_argument('--log_average_activations', type=bool, default=True)
 parser.add_argument('--log_experiment_flags', type=bool, default=True)
+parser.add_argument('--use_cuda_if_available', type=bool, default=True)
 
 args = vars(parser.parse_args())
 
@@ -59,7 +60,7 @@ def main(args):
     batch_size = args['batch_size']
     batch_no = len(X_train) // batch_size
     
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device('cuda' if torch.cuda.is_available() and args['use_cuda_if_available'] else 'cpu')
 
     net = Net(args['intermediate_dim'],
               args['stripe_dim'],
