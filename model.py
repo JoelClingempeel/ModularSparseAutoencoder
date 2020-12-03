@@ -1,3 +1,5 @@
+import math
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -61,12 +63,6 @@ class Net(nn.Module):
     def _boosts(self):
         return torch.exp(self.beta * (self.gamma - self.boosted_scores)).to(self.device)
 
-    def sparsify_layer(self, x):  # Applied to an individual image.
-        indices = x.topk(self.num_active_neurons).indices
-        mask = torch.tensor([1 if j in indices else 0
-                             for j in range(len(x))]).to(device)
-        return x * mask
-
     def batch_sparsify_layer(self, x):
         return k_mask(x, self.num_active_neurons)
 
@@ -81,26 +77,20 @@ class Net(nn.Module):
         return mask * x
 
     def batch_lifetime_sparsify_layer(self, x):  # Applied to a batch.
-        top_neurons = x.mean(0).topk(self.num_active_neurons).indices
-        mask = torch.tensor([1 if index in top_neurons else 0
-                             for index in range(self.stripe_dim * self.num_stripes)]).to(self.device)
-        x = mask * x
-        return x
+        avg_values = x.mean(0)
+        threshold = avg_values.topk(self.num_active_neurons).values[-1]
+        mask = avg_values >= threshold * torch.ones(avg_values.shape)
+        return mask * x
 
     def sparsify_stripes(self, x):
         return stripe_k_mask(x, self.num_active_stripes)
 
     def lifetime_sparsify_stripes(self, x):
-        num_active = int(self.active_stripes_per_batch * len(x))
+        num_active = math.ceil(self.active_stripes_per_batch * len(x))
         stripe_avg_values = torch.mean(x, 2).transpose(0, 1)
-        mask_data = []
-        for stripe in stripe_avg_values:
-            top_samples = stripe.topk(num_active).indices  # Topk applied across batch.
-            stripe_mask = torch.tensor([1 if j in top_samples else 0
-                                        for j in range(len(stripe))]).to(self.device)
-            mask_data.append(stripe_mask)
-        mask = torch.stack(mask_data, dim=1).to(self.device)
-        return mask.unsqueeze(2) * x
+        thresholds = stripe_avg_values.topk(num_active).values[:, -1]
+        mask = stripe_avg_values >= thresholds.unsqueeze(1) * torch.ones(stripe_avg_values.shape)
+        return mask.transpose(0, 1).unsqueeze(2) * x
 
     def routing_sparsify_stripes(self, intermediate, stripe_data):
         routing_scores = self.routing_layer(intermediate)
