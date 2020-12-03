@@ -3,6 +3,17 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+# For a batch of vectors.
+def k_mask(x, k):
+    thresholds = x.topk(k).values[:, -1]
+    mask = x >= thresholds.unsqueeze(1) * torch.ones(x.shape)
+    return mask * x
+
+# For a batch of striped vectors.
+def stripe_k_mask(x, k):
+    mask = k_mask(torch.mean(x, 2), k) > torch.zeros(x.shape[:-1])
+    return mask.unsqueeze(2) * x
+
 class Net(nn.Module):
     def __init__(self,
                  intermediate_dim,
@@ -57,17 +68,17 @@ class Net(nn.Module):
         return x * mask
 
     def batch_sparsify_layer(self, x):
-        return torch.stack([self.sparsify_layer(data) for data in x], dim=0).to(self.device)
+        return k_mask(x, self.num_active_neurons)
 
     def batch_boosted_sparsify_layer(self, x):
-        # Calculate masks with boosting, then update boost scores, and then apply masks.
+        # Calculate mask with boosting, then update boost scores, and then apply mask.
+        boosted_x = self._boosts() * x
+        thresholds = boosted_x.topk(self.num_active_neurons).values[:, -1]
+        mask = boosted_x >= thresholds.unsqueeze(1) * torch.ones(boosted_x.shape)
         with torch.no_grad():
-            masks = torch.stack([self.sparsify_layer(self._boosts() * datum)
-                                 for datum in x],
-                                dim=0).to(self.device)
             self.boosted_scores *= (1 - self.alpha)
-            self.boosted_scores += self.alpha * masks.sum(0)
-        return masks * x
+            self.boosted_scores += self.alpha * mask.sum(0)
+        return mask * x
 
     def batch_lifetime_sparsify_layer(self, x):  # Applied to a batch.
         top_neurons = x.mean(0).topk(self.num_active_neurons).indices
@@ -77,14 +88,7 @@ class Net(nn.Module):
         return x
 
     def sparsify_stripes(self, x):
-        output = []
-        for sample in x:
-            avg_values = torch.mean(sample, 1)
-            cluster_indices = avg_values.topk(self.num_active_stripes).indices
-            mask = torch.tensor([1 if j in cluster_indices else 0
-                                 for j in range(self.num_stripes)]).to(self.device)
-            output.append((sample.transpose(0, 1) * mask).transpose(0, 1))
-        return torch.stack(output, dim=0).to(self.device)
+        return stripe_k_mask(x, self.num_active_stripes)
 
     def lifetime_sparsify_stripes(self, x):
         num_active = int(self.active_stripes_per_batch * len(x))
@@ -100,13 +104,7 @@ class Net(nn.Module):
 
     def routing_sparsify_stripes(self, intermediate, stripe_data):
         routing_scores = self.routing_layer(intermediate)
-        mask_data = []
-        for data in routing_scores:
-            cluster_indices = data.topk(self.num_active_stripes).indices
-            mask = torch.tensor([1 if j in cluster_indices else 0
-                                 for j in range(self.num_stripes)]).to(self.device)
-            mask_data.append(mask)
-        mask = torch.stack(mask_data, dim=0).to(self.device) * routing_scores
+        mask = k_mask(routing_scores, self.num_active_stripes) > torch.zeros(routing_scores.shape)
         return mask.unsqueeze(2) * stripe_data
 
     def encode(self, x):
