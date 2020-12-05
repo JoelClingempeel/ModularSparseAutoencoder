@@ -96,6 +96,7 @@ def train(net,
           num_epochs,
           batch_size,
           batch_no,
+          distort_prob_decay,
           routing_l1_regularization,
           log_class_specific_losses,
           should_log_average_routing_scores):
@@ -111,6 +112,7 @@ def train(net,
                                  batch_size,
                                  batch_no,
                                  routing_l1_regularization=routing_l1_regularization)
+        net.distort_prob = max(net.distort_prob - distort_prob_decay, 0)
         main_writer.add_scalar('train_loss', train_loss, epoch)
         log_losses(net,
                    criterion,

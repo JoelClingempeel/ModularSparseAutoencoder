@@ -22,6 +22,8 @@ parser.add_argument('--num_active_neurons', type=int, default=15)
 parser.add_argument('--num_active_stripes', type=int, default=5)
 parser.add_argument('--layer_sparsity_mode', type=str, default='none')  # Set to none, ordinary, boosted, or lifetime.
 parser.add_argument('--stripe_sparsity_mode', type=str, default='routing')  # Set to none, ordinary, or routing.
+parser.add_argument('--distort_prob', type=float, default=.1)  # Probability of stripe sparsity mask bits randomly flipping.
+parser.add_argument('--distort_prob_decay', type=float, default=.025)  # Lowers distort_prob by this amount every epoch.
 
 # Boosting Flags - Only necessary when layer_sparsity_mode is set to boosted.
 parser.add_argument('--alpha', type=float, default=.8)
@@ -38,7 +40,7 @@ parser.add_argument('--active_stripes_per_batch', type=float, default=1.)
 # Training Flags
 parser.add_argument('--lr', type=float, default=.01)
 parser.add_argument('--momentum', type=float, default=.9)
-parser.add_argument('--num_epochs', type=int, default=12)
+parser.add_argument('--num_epochs', type=int, default=2)
 parser.add_argument('--batch_size', type=int, default=8)
 parser.add_argument('--data_path', type=str, default='data.csv')
 parser.add_argument('--log_path', type=str, default='logs')
@@ -69,6 +71,7 @@ def main(args):
               args['num_active_stripes'],
               args['layer_sparsity_mode'],
               args['stripe_sparsity_mode'],
+              args['distort_prob'],
               args['alpha'],
               args['beta'],
               args['active_stripes_per_batch'],
@@ -85,6 +88,7 @@ def main(args):
                              timestamp)
     print(f'Logging results to path:  {root_path}')
 
+    distort_prob_decay = args['distort_prob_decay']
     routing_l1_regularization = (args['routing_l1_regularization'] if args['stripe_sparsity_mode'] == 'routing' else 0)
     log_class_specific_losses = args['log_class_specific_losses']
     should_log_average_routing_scores = (
@@ -101,6 +105,7 @@ def main(args):
           num_epochs,
           batch_size,
           batch_no,
+          distort_prob_decay,
           routing_l1_regularization,
           log_class_specific_losses,
           should_log_average_routing_scores)

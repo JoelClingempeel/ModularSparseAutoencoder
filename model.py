@@ -8,13 +8,11 @@ import torch.nn.functional as F
 # For a batch of vectors.
 def k_mask(x, k):
     thresholds = x.topk(k).values[:, -1]
-    mask = x >= thresholds.unsqueeze(1) * torch.ones(x.shape)
-    return mask * x
+    return x >= (thresholds.unsqueeze(1) * torch.ones(x.shape))
 
 # For a batch of striped vectors.
 def stripe_k_mask(x, k):
-    mask = k_mask(torch.mean(x, 2), k) > torch.zeros(x.shape[:-1])
-    return mask.unsqueeze(2) * x
+    return k_mask(torch.mean(x, 2), k) > torch.zeros(x.shape[:-1])
 
 class Net(nn.Module):
     def __init__(self,
@@ -25,6 +23,7 @@ class Net(nn.Module):
                  num_active_stripes,
                  layer_sparsity_mode,
                  stripe_sparsity_mode,
+                 distort_prob,
                  alpha,
                  beta,
                  active_stripes_per_batch,
@@ -47,6 +46,8 @@ class Net(nn.Module):
         self.layer_sparsity_mode = layer_sparsity_mode
         self.stripe_sparsity_mode = stripe_sparsity_mode
 
+        self.distort_prob = distort_prob
+
         if layer_sparsity_mode == 'boosted':
             self.alpha = alpha
             self.beta = beta
@@ -60,11 +61,15 @@ class Net(nn.Module):
 
         self.device = device
 
+    def _distort_mask(self, mask):
+        rand_mask = torch.rand(mask.shape) > 1 - self.distort_prob
+        return torch.logical_xor(mask, rand_mask)
+
     def _boosts(self):
         return torch.exp(self.beta * (self.gamma - self.boosted_scores)).to(self.device)
 
     def batch_sparsify_layer(self, x):
-        return k_mask(x, self.num_active_neurons)
+        return k_mask(x, self.num_active_neurons) * x
 
     def batch_boosted_sparsify_layer(self, x):
         # Calculate mask with boosting, then update boost scores, and then apply mask.
@@ -83,18 +88,19 @@ class Net(nn.Module):
         return mask * x
 
     def sparsify_stripes(self, x):
-        return stripe_k_mask(x, self.num_active_stripes)
+        return self._distort_mask(stripe_k_mask(x, self.num_active_stripes)).unsqueeze(2) * x
 
     def lifetime_sparsify_stripes(self, x):
         num_active = math.ceil(self.active_stripes_per_batch * len(x))
         stripe_avg_values = torch.mean(x, 2).transpose(0, 1)
         thresholds = stripe_avg_values.topk(num_active).values[:, -1]
         mask = stripe_avg_values >= thresholds.unsqueeze(1) * torch.ones(stripe_avg_values.shape)
+        mask = self._distort_mask(mask)
         return mask.transpose(0, 1).unsqueeze(2) * x
 
     def routing_sparsify_stripes(self, intermediate, stripe_data):
         routing_scores = self.routing_layer(intermediate)
-        mask = k_mask(routing_scores, self.num_active_stripes) > torch.zeros(routing_scores.shape)
+        mask = self._distort_mask(k_mask(routing_scores, self.num_active_stripes))
         return mask.unsqueeze(2) * stripe_data
 
     def encode(self, x):
