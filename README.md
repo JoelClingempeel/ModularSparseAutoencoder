@@ -44,3 +44,6 @@ To view, run:
 ### Automated Hyperparameter Tuning
 Modify the `hyperparameters_config.json` so that for each flag it lists the different possibilies you wish to test, and then run `tune_parameters.py`.
 (Alternatively, you can use a different config file if you change the path in the `hyperparameters_config` flag in `tune_parameters.py`.)
+
+### Analysis / Visualization
+Use Analyze.ipynb in a Jupyter Notebook, and remember that for all experiments under consideration you *must* set the `log_experiment_flags` flag. 
